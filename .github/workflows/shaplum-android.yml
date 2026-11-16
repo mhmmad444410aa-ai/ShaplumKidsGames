@@ -1,4 +1,4 @@
-name: Shaplum Kids Games 1.3.0 APK
+name: Shaplum Kids Games 1.4.0 APK
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
       - '.github/workflows/shaplum-android.yml'
       - 'ShaplumKidsGames_1.2.0_Overlay.zip'
       - 'ShaplumKidsGames_1.3.0_RealRedesign_Overlay.zip'
+      - 'ShaplumKidsGames_1.4.0_Gameplay_Redesign_Overlay.zip'
       - 'ShaplumKidsGames_1.3.0_RealRedesign_Overlay.zip'
   workflow_dispatch:
     inputs:
@@ -42,6 +43,8 @@ jobs:
           unzip -qo ShaplumKidsGames_1.2.0_Overlay.zip
           test -s ShaplumKidsGames_1.3.0_RealRedesign_Overlay.zip || { echo 'Missing v1.3 redesign'; exit 1; }
           unzip -qo ShaplumKidsGames_1.3.0_RealRedesign_Overlay.zip
+          test -s ShaplumKidsGames_1.4.0_Gameplay_Redesign_Overlay.zip
+          unzip -qo ShaplumKidsGames_1.4.0_Gameplay_Redesign_Overlay.zip
           test -s ShaplumKidsGames_1.3.0_RealRedesign_Overlay.zip
           unzip -qo ShaplumKidsGames_1.3.0_RealRedesign_Overlay.zip
           test -f ShaplumKidsGames/settings.gradle.kts
@@ -72,7 +75,7 @@ jobs:
       - name: Upload installable Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: ShaplumKidsGames-1.3.0-Debug-APK
+          name: ShaplumKidsGames-1.4.0-Debug-APK
           path: ShaplumKidsGames/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
@@ -80,7 +83,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ShaplumKidsGames-1.3.0-Test-Reports
+          name: ShaplumKidsGames-1.4.0-Test-Reports
           path: |
             ShaplumKidsGames/app/build/reports/
             ShaplumKidsGames/app/build/test-results/
@@ -131,7 +134,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.signed_release
         uses: actions/upload-artifact@v4
         with:
-          name: ShaplumKidsGames-1.3.0-Signed-Release
+          name: ShaplumKidsGames-1.4.0-Signed-Release
           path: |
             ShaplumKidsGames/app/build/outputs/apk/release/app-release.apk
             ShaplumKidsGames/app/build/outputs/apk/release/certificate-sha256.txt
