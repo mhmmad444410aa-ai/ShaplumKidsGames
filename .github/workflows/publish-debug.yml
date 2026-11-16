@@ -1,0 +1,41 @@
+name: Publish Shaplum Debug APK link
+on:
+  workflow_run:
+    workflows: ["Shaplum Kids Games 1.1.0 APK"]
+    types: [completed]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download trusted debug APK from completed workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifact
+          gh run download "$RUN_ID" --name ShaplumKidsGames-1.1.0-Debug-APK --dir artifact
+          test -s artifact/app-debug.apk
+          cp artifact/app-debug.apk ShaplumKidsGames-1.1.0-Debug.apk
+      - name: Upload installable APK to public GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=shaplum-1.1.0-debug
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --target "$HEAD_SHA" --title 'Shaplum Kids Games 1.1.0 - Debug APK (testing only)' --notes 'This is an installable DEBUG build for testing. Not a signed store release. Installs alongside the v1.0.0 app.' --prerelease
+          fi
+          gh release upload "$tag" 'ShaplumKidsGames-1.1.0-Debug.apk' --clobber
