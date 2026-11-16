@@ -1,0 +1,128 @@
+name: Shaplum Kids Games 1.1.0 APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ShaplumKidsGames_1.1.0_SourceForGitHub.zip'
+  workflow_dispatch:
+    inputs:
+      signed_release:
+        description: 'Build signed Release with the ORIGINAL signing key'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Build, test and package Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Extract archived Android project
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive=ShaplumKidsGames_1.1.0_SourceForGitHub.zip
+          test -s "$archive" || { echo "ERROR: upload $archive at the root of this repository"; exit 1; }
+          if unzip -Z1 "$archive" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+            echo "ERROR: Unsafe archive paths"; exit 1
+          fi
+          unzip -q "$archive"
+          test -f ShaplumKidsGames/settings.gradle.kts
+          test -f ShaplumKidsGames/app/build.gradle.kts
+          chmod +x ShaplumKidsGames/gradlew
+      - name: Configure Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install required Android build tools
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Configure Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Verify all translations
+        working-directory: ShaplumKidsGames
+        run: python3 tools/verify_resources.py
+      - name: Test, lint and compile Debug APK
+        working-directory: ShaplumKidsGames
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --no-daemon --stacktrace
+      - name: Upload installable Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShaplumKidsGames-1.1.0-Debug-APK
+          path: ShaplumKidsGames/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload QA logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShaplumKidsGames-1.1.0-Test-Reports
+          path: |
+            ShaplumKidsGames/app/build/reports/
+            ShaplumKidsGames/app/build/test-results/
+          if-no-files-found: warn
+      - name: Load private ORIGINAL release signing key
+        if: github.event_name == 'workflow_dispatch' && inputs.signed_release
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          STORE_PASS: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          POLICY_URL: ${{ vars.PRIVACY_POLICY_URL }}
+          CONTACT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
+        run: |
+          set -euo pipefail
+          for item in KEYSTORE_B64 STORE_PASS KEY_ALIAS KEY_PASS POLICY_URL CONTACT_EMAIL; do
+            test -n "${!item}" || { echo "Missing signing secret or release variable: $item"; exit 1; }
+          done
+          [[ "$POLICY_URL" == https://* ]] || { echo "Need an HTTPS privacy policy URL"; exit 1; }
+          [[ "$CONTACT_EMAIL" == *@* ]] || { echo "Need a support email"; exit 1; }
+          umask 077
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/shaplum-release.jks"
+          echo "RELEASE_KEYSTORE_PATH=$RUNNER_TEMP/shaplum-release.jks" >> "$GITHUB_ENV"
+      - name: Build signed Release APK
+        if: github.event_name == 'workflow_dispatch' && inputs.signed_release
+        working-directory: ShaplumKidsGames
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL }}
+          SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+      - name: Verify release signature against ORIGINAL 1.0.0
+        if: github.event_name == 'workflow_dispatch' && inputs.signed_release
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="ShaplumKidsGames/app/build/outputs/apk/release/app-release.apk"
+          test -s "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk" > "$RUNNER_TEMP/apk-signature-check.txt"
+          actual=$(awk -F ': ' '/Signer #1 certificate SHA-256 digest:/ {print toupper($2); exit}' "$RUNNER_TEMP/apk-signature-check.txt")
+          expected="EFD3D1376421899AFE8E08EE9CFDC8B5CA502BC9DD8C6EF33D733546F8FE5690"
+          test "$actual" = "$expected" || { echo "WRONG SIGNING KEY - STOP"; exit 1; }
+          echo "$actual" > ShaplumKidsGames/app/build/outputs/apk/release/certificate-sha256.txt
+      - name: Upload verified signed Release APK
+        if: github.event_name == 'workflow_dispatch' && inputs.signed_release
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShaplumKidsGames-1.1.0-Signed-Release
+          path: |
+            ShaplumKidsGames/app/build/outputs/apk/release/app-release.apk
+            ShaplumKidsGames/app/build/outputs/apk/release/certificate-sha256.txt
+          if-no-files-found: error
+          retention-days: 30
+      - name: Remove temporary signing files
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/shaplum-release.jks" "$RUNNER_TEMP/apk-signature-check.txt"
