@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'ShaplumKidsGames_1.2.0_SourceForGitHub.zip'
+      - 'ShaplumKidsGames_1.1.0_SourceForGitHub.zip'
       - '.github/workflows/shaplum-android.yml'
       - 'ShaplumKidsGames_1.2.0_Overlay.zip'
   workflow_dispatch:
@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          archive=ShaplumKidsGames_1.2.0_SourceForGitHub.zip
+          archive=ShaplumKidsGames_1.1.0_SourceForGitHub.zip
           test -s "$archive" || { echo "ERROR: upload $archive at the root of this repository"; exit 1; }
           if unzip -Z1 "$archive" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
             echo "ERROR: Unsafe archive paths"; exit 1
