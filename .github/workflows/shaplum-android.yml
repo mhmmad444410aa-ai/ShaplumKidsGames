@@ -8,6 +8,7 @@ on:
       - '.github/workflows/shaplum-android.yml'
       - 'ShaplumKidsGames_1.2.0_Overlay.zip'
       - 'ShaplumKidsGames_1.3.0_RealRedesign_Overlay.zip'
+      - 'ShaplumKidsGames_1.3.0_RealRedesign_Overlay.zip'
   workflow_dispatch:
     inputs:
       signed_release:
@@ -39,6 +40,8 @@ jobs:
           unzip -q "$archive"
           test -s ShaplumKidsGames_1.2.0_Overlay.zip || { echo "Missing v1.2 overlay"; exit 1; }
           unzip -qo ShaplumKidsGames_1.2.0_Overlay.zip
+          test -s ShaplumKidsGames_1.3.0_RealRedesign_Overlay.zip || { echo 'Missing v1.3 redesign'; exit 1; }
+          unzip -qo ShaplumKidsGames_1.3.0_RealRedesign_Overlay.zip
           test -s ShaplumKidsGames_1.3.0_RealRedesign_Overlay.zip
           unzip -qo ShaplumKidsGames_1.3.0_RealRedesign_Overlay.zip
           test -f ShaplumKidsGames/settings.gradle.kts
