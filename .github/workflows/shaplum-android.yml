@@ -1,11 +1,12 @@
-name: Shaplum Kids Games 1.1.0 APK
+name: Shaplum Kids Games 1.2.0 APK
 
 on:
   push:
     branches: [main]
     paths:
-      - 'ShaplumKidsGames_1.1.0_SourceForGitHub.zip'
+      - 'ShaplumKidsGames_1.2.0_SourceForGitHub.zip'
       - '.github/workflows/shaplum-android.yml'
+      - 'ShaplumKidsGames_1.2.0_Overlay.zip'
   workflow_dispatch:
     inputs:
       signed_release:
@@ -29,12 +30,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          archive=ShaplumKidsGames_1.1.0_SourceForGitHub.zip
+          archive=ShaplumKidsGames_1.2.0_SourceForGitHub.zip
           test -s "$archive" || { echo "ERROR: upload $archive at the root of this repository"; exit 1; }
           if unzip -Z1 "$archive" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
             echo "ERROR: Unsafe archive paths"; exit 1
           fi
           unzip -q "$archive"
+          test -s ShaplumKidsGames_1.2.0_Overlay.zip || { echo "Missing v1.2 overlay"; exit 1; }
+          unzip -qo ShaplumKidsGames_1.2.0_Overlay.zip
           test -f ShaplumKidsGames/settings.gradle.kts
           test -f ShaplumKidsGames/app/build.gradle.kts
           chmod +x ShaplumKidsGames/gradlew
@@ -63,7 +66,7 @@ jobs:
       - name: Upload installable Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: ShaplumKidsGames-1.1.0-Debug-APK
+          name: ShaplumKidsGames-1.2.0-Debug-APK
           path: ShaplumKidsGames/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
@@ -71,7 +74,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ShaplumKidsGames-1.1.0-Test-Reports
+          name: ShaplumKidsGames-1.2.0-Test-Reports
           path: |
             ShaplumKidsGames/app/build/reports/
             ShaplumKidsGames/app/build/test-results/
@@ -122,7 +125,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.signed_release
         uses: actions/upload-artifact@v4
         with:
-          name: ShaplumKidsGames-1.1.0-Signed-Release
+          name: ShaplumKidsGames-1.2.0-Signed-Release
           path: |
             ShaplumKidsGames/app/build/outputs/apk/release/app-release.apk
             ShaplumKidsGames/app/build/outputs/apk/release/certificate-sha256.txt
