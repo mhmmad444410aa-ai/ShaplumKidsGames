@@ -1,0 +1,61 @@
+name: Publish original-key signed Shaplum 1.5.0 APK
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-signed-150.yml'
+      - 'release/shaplum-1.5.0.apkd.gz'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve exact unsigned APK from successful build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh run download 44018076372 --name ShaplumKidsGames-1.5.0-Unsigned-Release --dir /tmp/shaplum-build
+      - name: Restore the already signed APK without private keys
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, gzip, json, hashlib
+          digest = lambda b: hashlib.sha256(b).hexdigest()
+          a = next(Path('/tmp/shaplum-build').rglob('app-release-unsigned.apk')).read_bytes()
+          p = json.loads(gzip.decompress(Path('release/shaplum-1.5.0.apkd.gz').read_bytes()))
+          assert p['algorithm'] == 'zip-copy-v1'
+          assert digest(a) == p['source_sha256'] == '5d1714cb0d743b42c72b96e8cc0a6989d5d954030064fb2070c10e1f8d1d9471'
+          b = b''.join(a[o[1]:o[1]+o[2]] if o[0]=='copy' else base64.b64decode(o[1], validate=True) for o in p['ops'])
+          assert len(b) == p['size'] == 1441917
+          assert digest(b) == p['signed_sha256'] == '0a4f1cd44fea19554cce3dcabaefbd4c26a93902213d53c2a240d5dd99761b22'
+          Path('ShaplumKidsGames-1.5.0-Release-Signed.apk').write_bytes(b)
+          PY
+      - name: Verify original signing certificate and signature schemes
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar="$(find /tmp/shaplum-build -name apksigner.jar -print -quit)"
+          java -jar "$jar" verify --verbose --print-certs ShaplumKidsGames-1.5.0-Release-Signed.apk > /tmp/cert.txt
+          grep -F 'Signer #1 certificate SHA-256 digest: efd3d1376421899afe8e08ee9cfdc8b5ca502bc9dd8c6ef33d733546f8fe5690' /tmp/cert.txt
+          grep -F 'Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/cert.txt
+          grep -F 'Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/cert.txt
+          sha256sum ShaplumKidsGames-1.5.0-Release-Signed.apk > SHA256SUMS.txt
+      - name: Publish signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=shaplum-1.5.0-release
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --target aa09801493c1fe7a7008f2e6ebcbb99faf660a64 --title 'Shaplum Kids Games 1.5.0 - Signed Release' --notes 'Production APK, version code 6, original signing certificate verified. Store review, device testing and privacy-policy configuration remain pending.' --prerelease
+          fi
+          gh release upload "$tag" ShaplumKidsGames-1.5.0-Release-Signed.apk SHA256SUMS.txt --clobber
