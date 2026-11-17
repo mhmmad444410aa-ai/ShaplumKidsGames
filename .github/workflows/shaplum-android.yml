@@ -50,6 +50,47 @@ jobs:
           test -f ShaplumKidsGames/settings.gradle.kts
           test -f ShaplumKidsGames/app/build.gradle.kts
           chmod +x ShaplumKidsGames/gradlew
+      - name: Restore missing translated playroom resources and fix shared animation visibility
+        working-directory: ShaplumKidsGames
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import xml.etree.ElementTree as ET
+          base = Path("app/src/main/res")
+          names = ["v13_choose_level", "v13_kids_games", "v13_play_now", "v13_pick_a_game", "v13_all_open", "v13_levels_open"]
+          strings = {
+              "values": ["Choose a level", "Kids Games", "Play now", "Pick a game", "All games are open", "All levels are open"],
+              "values-en-rGB": ["Choose a level", "Kids Games", "Play now", "Pick a game", "All games are open", "All levels are open"],
+              "values-ar": ["اختر مرحلة", "ألعاب الأطفال", "العب الآن", "اختر لعبة", "جميع الألعاب متاحة", "جميع المراحل متاحة"],
+              "values-pt-rBR": ["Escolha uma fase", "Jogos infantis", "Jogar agora", "Escolha um jogo", "Todos os jogos estão abertos", "Todas as fases estão abertas"],
+          }
+          for directory in base.glob("values*"):
+              if not (directory / "strings.xml").exists():
+                  continue
+              locale = directory.name
+              vals = strings.get(locale, strings["values"])
+              existing = set()
+              for x in directory.glob("*.xml"):
+                  existing.update(e.attrib.get("name") for e in ET.parse(x).getroot() if e.tag == "string")
+              target = directory / "strings.xml"
+              source = target.read_text(encoding="utf-8")
+              entries = "".join('    <string name="' + key + '">' + value + '</string>\n' for key, value in zip(names, vals) if key not in existing)
+              if entries:
+                  assert "</resources>" in source
+                  target.write_text(source.replace("</resources>", entries + "</resources>"), encoding="utf-8")
+          for target in Path("app/src/main/java").rglob("*.kt"):
+              source = target.read_text(encoding="utf-8")
+              updated = re.sub(r'\bprivate\s+fun\s+CelebrationBurst\s*\(', 'internal fun CelebrationBurst(', source)
+              if source != updated:
+                  target.write_text(updated, encoding="utf-8")
+          target = Path("app/build.gradle.kts")
+          source = target.read_text(encoding="utf-8")
+          source = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 6', source, count=1)
+          source = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.5.0"', source, count=1)
+          target.write_text(source, encoding="utf-8")
+          PY
       - name: Configure Java 17
         uses: actions/setup-java@v4
         with:
