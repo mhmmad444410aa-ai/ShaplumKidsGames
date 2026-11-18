@@ -1,0 +1,46 @@
+name: Publish verified original-key signed Shaplum 1.7.0 APK
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-signed-170.yml','release/shaplum-170-signed-delta.b64']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve successful production build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh run download 44320400624 --name ShaplumKidsGames-1.7.0-Unsigned-Release --dir input
+      - name: Reconstruct signed APK and verify checksum and certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64,gzip,json,hashlib
+          from pathlib import Path
+          p=json.loads(gzip.decompress(base64.b64decode(Path("release/shaplum-170-signed-delta.b64").read_text())))
+          a=next(Path("input").rglob("app-release-unsigned.apk")).read_bytes()
+          assert hashlib.sha256(a).hexdigest()==p["source_sha256"]
+          b=b"".join(a[o[1]:o[1]+o[2]] if o[0]=="copy" else base64.b64decode(o[1]) for o in p["ops"])
+          assert hashlib.sha256(b).hexdigest()=="ac30a84efa4f954d368c20d00980759a8ef59e66c8d2fd569989f86556271aec"
+          Path("ShaplumKidsGames-1.7.0-Release-Signed.apk").write_bytes(b)
+          PY
+          java -jar "$(find input -name apksigner.jar -print -quit)" verify --verbose --print-certs ShaplumKidsGames-1.7.0-Release-Signed.apk | tee cert.txt
+          grep -qi 'efd3d1376421899afe8e08ee9cfdc8b5ca502bc9dd8c6ef33d733546f8fe5690' cert.txt
+          grep -F 'Verified using v2 scheme (APK Signature Scheme v2): true' cert.txt
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 ShaplumKidsGames-1.7.0-Release-Signed.apk
+          sha256sum ShaplumKidsGames-1.7.0-Release-Signed.apk > SHA256SUMS.txt
+      - name: Publish verified APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag=shaplum-1.7.0-release
+          gh release view "$tag" || gh release create "$tag" --target 0f532dd239e06cf47344df0e8cdfebc6f789d022 --title "Shaplum Kids Games 1.7.0 — Signed Release" --notes "Original signing certificate verified. Petal Ads integrated in guardian area after privacy consent only; no startup ad prompt. Unit tests and lint passed. R8 minification disabled due to SDK optional references. Live ad/device QA pending." --prerelease
+          gh release upload "$tag" ShaplumKidsGames-1.7.0-Release-Signed.apk SHA256SUMS.txt --clobber
