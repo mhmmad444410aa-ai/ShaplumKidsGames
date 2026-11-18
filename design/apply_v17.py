@@ -15,6 +15,11 @@ s=s.replace('buildConfigField("boolean", "ADS_ENABLED", "false")','buildConfigFi
 s=s.replace('providers.environmentVariable("PRIVACY_POLICY_URL").orElse("").get()','providers.environmentVariable("PRIVACY_POLICY_URL").orElse("https://github.com/mhmmad444410aa-ai/ShaplumKidsGames/blob/main/PRIVACY.md").get()')
 s=s.replace('dependencies {','dependencies {\n    implementation("com.huawei.hms:ads-prime:3.4.91.300")',1)
 assert 'c9uhivwtc2' in s and 'g3b44r11ew' in s
+# Preserve complete third-party SDK bytecode in production; do not suppress missing-class warnings.
+# Huawei SDK has vendor-specific optional references not resolved by R8.
+s = re.sub(r'\bisMinifyEnabled\s*=\s*true\b', 'isMinifyEnabled = false', s)
+s = re.sub(r'\bisShrinkResources\s*=\s*true\b', 'isShrinkResources = false', s)
+assert 'isMinifyEnabled = false' in s, "Release minification setting not found"
 g.write_text(s)
 p=Path("app/proguard-rules.pro")
 p.write_text(p.read_text()+"\n-keep class com.huawei.openalliance.ad.** { *; }\n-keep class com.huawei.hms.ads.** { *; }\n")
