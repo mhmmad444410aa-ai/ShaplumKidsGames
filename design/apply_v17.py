@@ -23,6 +23,8 @@ s=p.read_text().replace('xmlns:android="http://schemas.android.com/apk/res/andro
 s=s.replace('<!-- Intentionally no INTERNET, advertising ID, storage, or dangerous permissions. -->','''<!-- Network only for disclosed parent-area advertising. Remove identifier and location permissions from dependency manifests. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- SDK may post download notifications. App never requests this runtime permission. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" tools:node="remove" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" tools:node="remove" />
@@ -50,7 +52,7 @@ p=Path("tools/verify_resources.py");s=p.read_text()
 s=s.replace("assert not manifest.findall('uses-permission'),'Unexpected permission'","""ns='{http://schemas.android.com/apk/res/android}'
 tools='{http://schemas.android.com/tools}'
 perms={e.attrib.get(ns+'name') for e in manifest.findall('uses-permission') if e.attrib.get(tools+'node')!='remove'}
-assert perms=={'android.permission.INTERNET','android.permission.ACCESS_NETWORK_STATE'},f'Unexpected permissions: {perms}'""")
-s=s.replace("no permissions or signing files","only declared network permissions and no signing files")
+assert perms=={'android.permission.INTERNET','android.permission.ACCESS_NETWORK_STATE','android.permission.POST_NOTIFICATIONS'},f'Unexpected permissions: {perms}'""")
+s=s.replace("no permissions or signing files","only declared network and SDK notification permissions; no signing files")
 p.write_text(s)
 print("Applied 1.7 Petal Ads, guardian-only placement, consent lifecycle, privacy resources and test IDs.")
