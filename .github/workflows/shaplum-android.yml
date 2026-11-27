@@ -115,7 +115,7 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" --install 'platforms;android-36' 'build-tools;35.0.0'
       - name: Configure Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
       - name: Verify all translations
         working-directory: ShaplumKidsGames
         run: python3 tools/verify_resources.py
