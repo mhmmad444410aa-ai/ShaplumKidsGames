@@ -101,7 +101,7 @@ jobs:
         working-directory: ShaplumKidsGames
         run: python3 ../design/apply_v17.py
       - name: Configure Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
